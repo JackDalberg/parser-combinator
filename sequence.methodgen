@@ -1,0 +1,83 @@
+package main
+
+// Seq[T,U] is used to keep values for parser sequences built by Parser[T].Keep[U].
+// It is expected that the first parser in the sequence will keep its value.
+type Seq[T any, U any] struct {
+	first T
+	second U
+}
+
+func (parserT Parser[T]) Keep[U any](parserU Parser[U]) Parser[Seq[T, U]] {
+	return func(initial state) (Seq[T, U], state, error) {
+		t, next, err := parserT(initial)
+		if err != nil {
+			var zero Seq[T, U]
+			return zero, initial, err
+		}
+		u, final, err := parserU(next)
+		if err != nil {
+			var zero Seq[T, U]
+			return zero, initial, err
+		}
+		return Seq[T, U]{first: t, second: u}, final, nil
+	}
+}
+
+func (parserT Parser[T]) Skip[U any](parserU Parser[U]) Parser[T] {
+	return func(initial state) (Seq[T], state, error) {
+		t, next, err := parserT(initial)
+		if err != nil {
+			var zero T
+			return zero, initial, err
+		}
+		_, final, err := parserU(next)
+		if err != nil {
+			var zero T
+			return zero, initial, err
+		}
+		return t, final, nil
+	}
+}
+
+func StartKeeping[T any](parser Parser[T]) Parser[Seq[Empty, T]] {
+	return parser.Map(func(t T) Seq[Empty, T] {
+		return Seq[Empty, T]{first: Empty{}, second: t} 
+	})
+}
+
+func StartSkipping[T any](parser Parser[T]) Parser[Empty] {
+	return parser.Map(func(T) Empty { return Empty })
+}
+
+func (p Parser[Seq[Empty, T]]) Apply[A any](mapper func(T) A) Parser[A] {
+	return func(initial state) (A, state, error) {
+		seq, next, err := p(initial)
+		if err != nil {
+			var zero A
+			return zero, initial, err
+		}
+		return mapper(seq.second), next, nil
+	}
+}
+
+func (p Parser[Seq[Seq[Empty, T], U]]) Apply2[A any](mapper func(T, U) A) Parser[A] {
+	return func(initial state) (A, state, error) {
+		seq, next, err := p(initial)
+		if err != nil {
+			var zero A
+			return zero, initial, err
+		}
+		return mapper(seq.first.second, seq.second), next, nil
+	}
+}
+
+func (p Parser[Seq[Seq[Seq[Empty, T], U], V]]) Apply3[A any](mapper func(T, U, V) A) Parser[A] {
+	return func(initial state) (A, state, error) {
+		seq, next, err := p(initial)
+		if err != nil {
+			var zero A
+			return zero, initial, err
+		}
+		return mapper(seq.first.first.second, seq.first.second, seq.second), next, nil
+	}
+}
