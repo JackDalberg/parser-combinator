@@ -9,8 +9,8 @@ style one would typically use a sequential application of functions.
 	s2 := parser.AppendSkipping(s1, Exactly("="))
 	s3 := parser.AppendSkipping(s2, whitespaceParser)
 	s4 := parser.AppendKeeping(s3, valueParser)
-  bindingParser := parser.Apply2(s4,
-    func(name string, value BindingValue) Binding {
+  	bindingParser := parser.Apply2(s4,
+    	func(name string, value BindingValue) Binding {
 	 		return Binding{Name: name, Value: value}
 	 	})
 ```
